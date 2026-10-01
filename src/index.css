@@ -1,0 +1,132 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: #0b1120;
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+canvas {
+  display: block;
+  touch-action: none;
+}
+
+.bb-title {
+  font-family: Haettenschweiler, "Arial Narrow", Impact, system-ui, sans-serif;
+  letter-spacing: 0.015em;
+}
+
+/* Pannello vetro scuro con bordo luminoso */
+.bb-panel {
+  background:
+    linear-gradient(180deg, rgba(14, 20, 42, 0.97), rgba(7, 11, 24, 0.98));
+  border: 1px solid rgba(245, 197, 24, 0.28);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 0 0 1px rgba(0, 0, 0, 0.55),
+    0 30px 80px rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(14px) saturate(1.2);
+}
+
+.bb-chip {
+  background: rgba(12, 20, 42, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(10px);
+}
+
+/* Scanline leggere, non invasive */
+.scan::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(255, 255, 255, 0.028) 0px,
+    rgba(255, 255, 255, 0.028) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  mix-blend-mode: overlay;
+}
+
+/* Scrollbar discreta */
+.no-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.no-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.no-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(245, 197, 24, 0.45), rgba(244, 63, 94, 0.35));
+  border-radius: 8px;
+}
+.no-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(245, 197, 24, 0.7);
+}
+.no-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(245, 197, 24, 0.45) transparent;
+}
+
+@keyframes bbpop {
+  from {
+    transform: translateY(16px) scale(0.975);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+.bb-pop {
+  animation: bbpop 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0.3;
+  }
+}
+.bb-blink {
+  animation: blink 1.6s ease-in-out infinite;
+}
+
+/* Transizioni morbide di default sui controlli */
+button,
+select,
+input,
+a {
+  transition:
+    background-color 0.16s ease,
+    border-color 0.16s ease,
+    color 0.16s ease,
+    transform 0.12s ease,
+    box-shadow 0.16s ease;
+}
+
+button:focus-visible,
+select:focus-visible,
+input:focus-visible,
+a:focus-visible {
+  outline: 2px solid rgba(245, 197, 24, 0.75);
+  outline-offset: 2px;
+}
+
+select option {
+  background: #0f172a;
+  color: #fff;
+}
