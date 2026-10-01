@@ -54,9 +54,9 @@ export const DEFAULT_API_KEY = 'e4ec2b98194e32b52caa8d8de9ba5c02';
 
 export function getApiKey(): string {
   try {
-    return localStorage.getItem(KEY_STORAGE) || DEFAULT_API_KEY;
+    return localStorage.getItem(KEY_STORAGE) || import.meta.env.VITE_TMDB_API_KEY || '';
   } catch {
-    return DEFAULT_API_KEY;
+    return import.meta.env.VITE_TMDB_API_KEY || '';
   }
 }
 

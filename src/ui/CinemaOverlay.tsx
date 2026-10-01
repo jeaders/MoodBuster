@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { FILM_BY_ID, FILMS, MOOD_BY_ID } from '../data/films';
-import { getArchiveEmbedUrl, getYouTubeEmbedUrl } from '../data/freeMovies';
+import { getArchiveEmbedUrl, getYouTubeEmbedUrl, resolveYouTubeEmbedUrl } from '../data/freeMovies';
 import { useGame, flash } from '../lib/state';
 import { audio } from '../lib/audio';
 import { fetchMovieDetail, getTrailerEmbedUrl } from '../lib/tmdb';
@@ -10,7 +10,7 @@ type Projected =
   | { kind: 'youtube'; videoId: string; title: string }
   | null;
 
-/** Interpreta il seatFilmId: `ia_<id>` = Archive, `yt_<id>` = YouTube, altro = film catalogo. */
+/** Interpreta il seatFilmId: `ia_<id>` = Archive, `yt_<id>` = YouTube playlist, altro = film catalogo. */
 function readProjected(seatFilmId: string | null): Projected {
   if (!seatFilmId) return null;
   if (seatFilmId.startsWith('ia_')) {
@@ -64,12 +64,19 @@ export function CinemaOverlay() {
       setLoading(false);
       return;
     }
-    if (projected?.kind === 'youtube') {
-      setEmbedUrl(getYouTubeEmbedUrl(projected.videoId, true));
+  if (projected?.kind === 'youtube') {
+    const directUrl = resolveYouTubeEmbedUrl(seatFilmId);
+    if (directUrl) {
+      setEmbedUrl(directUrl);
       setMode('youtube');
       setLoading(false);
       return;
     }
+    setEmbedUrl(getYouTubeEmbedUrl(projected.videoId, true));
+    setMode('youtube');
+    setLoading(false);
+    return;
+  }
     if (!catalogFilm?.tmdbId) {
       setEmbedUrl(null);
       setMode('none');

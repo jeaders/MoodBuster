@@ -13,6 +13,9 @@
  */
 
 import type { MoodId } from './films';
+import { FILMS, FILM_BY_ID, FILMS_BY_MOOD, MOODS, MOOD_BY_ID } from './films';
+import { fetchPlaylistVideos, type YTPlaylistVideo } from '../lib/youtube';
+import { fetchMovieDetail, getApiKey, getTrailerEmbedUrl, posterUrl } from '../lib/tmdb';
 
 export type FreeTitle = {
   id: string;
@@ -33,6 +36,12 @@ export type FreeTitle = {
   snack: string;
   drink: string;
   kind: 'film' | 'cartoon';
+  /** YouTube video ID when this title is played from a playlist. */
+  ytVideoId?: string;
+  /** YouTube thumbnail when available. */
+  ytThumbnailUrl?: string;
+  /** TMDB poster path resolved at runtime when available. */
+  tmdbPosterPath?: string | null;
 };
 
 /* ══════════════ FILM INTERI — Internet Archive, pubblico dominio ══════════════ */
@@ -290,10 +299,158 @@ export const FREE_CHANNELS: FreeChannel[] = [
   { id: 'archive', name: 'Internet Archive — Feature Films', description: 'Il più grande archivio di film di pubblico dominio al mondo (migliaia di titoli).', channelHandle: 'https://archive.org/details/feature_films', logo: '🏛️', kind: 'film' },
   { id: 'rai_kids', name: 'Rai Kids', description: 'Serie animate italiane ed europee dal canale ufficiale Rai.', channelHandle: '@RaiKids', logo: '🎨', kind: 'cartoon' },
   { id: 'archive_anim', name: 'Internet Archive — Animation', description: 'Collezione di cartoni animati di pubblico dominio restaurati.', channelHandle: 'https://archive.org/details/animationandcartoons', logo: '🖌️', kind: 'cartoon' },
+  { id: 'yt_films', name: 'YouTube — Film Completi', description: 'Playlist pubblica di film completi gratuiti.', channelHandle: 'PL1kWuU-4-qOnPjWBZbPJpNBPtm7N9uNUf', logo: '🎬', kind: 'film', playlistId: 'PL1kWuU-4-qOnPjWBZbPJpNBPtm7N9uNUf' },
+  { id: 'yt_cartoons', name: 'YouTube — Cartoni Animati', description: 'Playlist pubblica di cartoni animati gratuiti.', channelHandle: 'PLfgtmsJQgW6Q0P7fk2gEyqKDAz9PZo5eg', logo: '🎨', kind: 'cartoon', playlistId: 'PLfgtmsJQgW6Q0P7fk2gEyqKDAz9PZo5eg' },
   { id: 'shorts', name: 'Cortometraggi d\'autore', description: 'Corti animati premiati nei festival internazionali.', channelHandle: 'results?search_query=award+winning+animated+short+film', logo: '🏆', kind: 'cartoon' },
 ];
 
-/* ══════════════ UTILITY ══════════════ */
+/* ══════════════ YOUTUBE PLAYLIST INTEGRATION ══════════════ */
+
+const YT_FILM_KEY = 'yt_film_v1';
+const YT_CARTOON_KEY = 'yt_cartoon_v1';
+
+function normalizeYTTitle(title: string): { title: string; year: number | null } {
+  let t = title.replace(/\(ITA\)/gi, '').replace(/Film completo/gi, '').replace(/HD/gi, '').replace(/720p/gi, '').replace(/1080p/gi, '').replace(/\[HD\]/gi, '').replace(/\s+/g, ' ').trim();
+  const yearMatch = t.match(/\b(19|20)\d{2}\b/);
+  const year = yearMatch ? Number(yearMatch[0]) : null;
+  if (yearMatch) t = t.replace(yearMatch[0], '').replace(/\s*-\s*/, ' ').trim();
+  return { title: t, year };
+}
+
+function matchToExistingFilm(title: string, year: number | null): { filmId?: string; tmdbId?: number } {
+  const normalized = title.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  for (const film of FILMS) {
+    const filmNorm = film.t.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+    if (filmNorm === normalized) {
+      if (year && film.y !== year) continue;
+      return { filmId: film.id, tmdbId: film.tmdbId };
+    }
+  }
+  return {};
+}
+
+function ytToFreeTitle(video: YTPlaylistVideo, kind: 'film' | 'cartoon'): FreeTitle {
+  const { title, year } = normalizeYTTitle(video.title);
+  const matched = matchToExistingFilm(title, year);
+  const mood = guessMood(title, kind);
+  return {
+    id: video.id,
+    t: title || video.title,
+    y: year || new Date().getFullYear(),
+    d: 90,
+    r: 0,
+    mood,
+    s: video.description || `Film gratuito da YouTube: ${video.title}`,
+    archiveId: '',
+    ytQuery: video.title,
+    license: 'official',
+    genre: kind === 'cartoon' ? 'Animazione' : 'Film',
+    c: ['#1a1a2e', '#16213e'],
+    quote: 'Film gratuito.',
+    snack: 'Popcorn',
+    drink: 'Cola',
+    kind,
+    ytVideoId: video.videoId,
+    ytThumbnailUrl: video.thumbnailUrl,
+    tmdbPosterPath: matched.tmdbId ? null : undefined,
+  };
+}
+
+function guessMood(title: string, kind: 'film' | 'cartoon'): MoodId {
+  const t = title.toLowerCase();
+  if (kind === 'cartoon') return 'animazione';
+  if (/commedia|ridere|scemo|fantozzi|amici miei|totò/.test(t)) return 'ridere';
+  if (/dramma|piangere|vita è bella|forrest gump|schindler/.test(t)) return 'piangere';
+  if (/horror|paura|esorcista|shining|alien|suspiria/.test(t)) return 'paura';
+  if (/amore|cuore|romantico|pretty woman|notting hill/.test(t)) return 'cuore';
+  if (/fantascienza|cervello|inception|matrix|memento/.test(t)) return 'cervello';
+  if (/azione|adrenalina|mad max|john wick|terminator/.test(t)) return 'adrenalina';
+  if (/epico|guerra|eroe|il gladiatore|braveheart/.test(t)) return 'epico';
+  if (/viaggio|avventura|into the wild|lost in translation/.test(t)) return 'viaggio';
+  if (/animazione|cartoon|disney|pixar|studio ghibli/.test(t)) return 'animazione';
+  if (/commedia|family|famiglia|tutti insieme|re leone/.test(t)) return 'famiglia';
+  return 'comfort';
+}
+
+let ytFilmsPromise: Promise<FreeTitle[]> | null = null;
+let ytCartoonsPromise: Promise<FreeTitle[]> | null = null;
+
+export function getYouTubeFilms(): Promise<FreeTitle[]> {
+  if (!ytFilmsPromise) {
+    ytFilmsPromise = loadYouTubeTitles('film');
+  }
+  return ytFilmsPromise;
+}
+
+export function getYouTubeCartoons(): Promise<FreeTitle[]> {
+  if (!ytCartoonsPromise) {
+    ytCartoonsPromise = loadYouTubeTitles('cartoon');
+  }
+  return ytCartoonsPromise;
+}
+
+async function loadYouTubeTitles(kind: 'film' | 'cartoon'): Promise<FreeTitle[]> {
+  const playlistId = kind === 'film' ? getYouTubeFilmPlaylist() : getYouTubeCartoonsPlaylist();
+  if (!playlistId) return [];
+
+  try {
+    const videos = await fetchPlaylistVideos(playlistId);
+    const freeTitles: FreeTitle[] = [];
+    for (const video of videos) {
+      const ft = ytToFreeTitle(video, kind);
+      freeTitles.push(ft);
+    }
+    return freeTitles;
+  } catch (error) {
+    console.warn('Failed to load YouTube playlist', kind, error);
+    return [];
+  }
+}
+
+/** Merge YouTube titles into FREE_MOVIES, avoiding duplicates. */
+export async function mergeYouTubeTitles(): Promise<{ added: number; skipped: number }> {
+  const [ytFilms, ytCartoons] = await Promise.all([getYouTubeFilms(), getYouTubeCartoons()]);
+  const allYT = [...ytFilms, ...ytCartoons];
+
+  const existingIds = new Set(FREE_MOVIES.map((f) => f.id));
+  const existingTitles = new Set(
+    FREE_MOVIES.map((f) => f.t.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()),
+  );
+
+  let added = 0;
+  let skipped = 0;
+
+  for (const yt of allYT) {
+    const normalizedTitle = yt.t.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+    if (existingIds.has(yt.id)) {
+      skipped++;
+      continue;
+    }
+    if (existingTitles.has(normalizedTitle)) {
+      skipped++;
+      continue;
+    }
+
+    const matched = matchToExistingFilm(yt.t, yt.y);
+    if (matched.filmId) {
+      skipped++;
+      continue;
+    }
+
+    FREE_MOVIES.push(yt);
+    existingIds.add(yt.id);
+    existingTitles.add(normalizedTitle);
+    added++;
+  }
+
+  return { added, skipped };
+}
+
+export function resolveYouTubeEmbedUrl(freeFilmId: string): string | null {
+  const entry = FREE_MOVIES.find((f) => f.id === freeFilmId);
+  if (!entry?.ytVideoId) return null;
+  return getYouTubeEmbedUrl(entry.ytVideoId, true);
+}
 
 /** URL embed di Internet Archive — stabile, nessun ad, nessun tracking. */
 export function getArchiveEmbedUrl(archiveId: string, autoplay = true): string {

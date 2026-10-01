@@ -130,9 +130,33 @@ npm run preview
 
 L'app usa una chiave TMDB di default per funzionare subito. Puoi sostituirla con la tua chiave gratuita registrandoti su [themoviedb.org](https://www.themoviedb.org/settings/api) e inserendola nel pannello dedicato.
 
+Per YouTube, imposta queste variabili d'ambiente:
+- `VITE_YOUTUBE_API_KEY`
+- `VITE_YOUTUBE_FILMS_PLAYLIST`
+- `VITE_YOUTUBE_CARTOONS_PLAYLIST`
+
+Esempio file `.env`:
+```
+VITE_TMDB_API_KEY=
+VITE_YOUTUBE_API_KEY=
+VITE_YOUTUBE_FILMS_PLAYLIST=PL1kWuU-4-qOnPjWBZbPJpNBPtm7N9uNUf
+VITE_YOUTUBE_CARTOONS_PLAYLIST=PLfgtmsJQgW6Q0P7fk2gEyqKDAz9PZo5eg
+```
+
 I contenuti gratuiti provengono da:
 - **Internet Archive**: opere di pubblico dominio con player embeddabile stabile.
-- **YouTube**: canali ufficiali di distributori italiani che pubblicano film interi legalmente.
+- **YouTube**: playlist pubbliche di film completi e cartoni animati distribuiti legalmente.
+
+## Deploy su Netlify
+
+1. Collega il repository GitHub a Netlify.
+2. Imposta queste variabili d'ambiente nel pannello Netlify:
+   - `VITE_TMDB_API_KEY`
+   - `VITE_YOUTUBE_API_KEY`
+   - `VITE_YOUTUBE_FILMS_PLAYLIST`
+   - `VITE_YOUTUBE_CARTOONS_PLAYLIST`
+3. Il file `netlify.toml` configura automaticamente build e publish.
+4. Netlify effettua il deploy automatico ad ogni push su `main`.
 
 ## Credits
 
