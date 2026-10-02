@@ -128,12 +128,13 @@ npm run preview
 
 ## Note sulla configurazione
 
-L'app usa una chiave TMDB di default per funzionare subito. Puoi sostituirla con la tua chiave gratuita registrandoti su [themoviedb.org](https://www.themoviedb.org/settings/api) e inserendola nel pannello dedicato.
+Le chiavi API non vengono mai incluse nel bundle del browser: tutte le chiamate a TMDB e YouTube passano dalla Netlify Function `netlify/functions/api.js`, che legge le variabili d'ambiente solo lato server. Impostale in Netlify (Site settings → Environment variables) oppure in un file `.env` locale (mai committato) e avvia l'app con `netlify dev`:
+- `VITE_TMDB_API_KEY` (oppure `TMDB_API_KEY`)
+- `VITE_YOUTUBE_API_KEY` (oppure `YOUTUBE_API_KEY`)
+- `VITE_YOUTUBE_FILMS_PLAYLIST` (oppure `YOUTUBE_FILMS_PLAYLIST`)
+- `VITE_YOUTUBE_CARTOONS_PLAYLIST` (oppure `YOUTUBE_CARTOONS_PLAYLIST`)
 
-Per YouTube, imposta queste variabili d'ambiente:
-- `VITE_YOUTUBE_API_KEY`
-- `VITE_YOUTUBE_FILMS_PLAYLIST`
-- `VITE_YOUTUBE_CARTOONS_PLAYLIST`
+Facoltativamente puoi inserire una tua chiave TMDB personale nel pannello dedicato: viene salvata solo nel tuo browser.
 
 Esempio file `.env`:
 ```

@@ -4,20 +4,10 @@
  * - Normalizza i titoli per il matching con il catalogo
  */
 
-const YT_BASE = 'https://www.googleapis.com/youtube/v3';
+/** Chiave API e ID delle playlist restano lato server nel proxy Netlify. */
 const API_PROXY = '/.netlify/functions/api';
 
-export function getYouTubeApiKey(): string {
-  return (import.meta.env.VITE_YOUTUBE_API_KEY || '').trim();
-}
-
-export function getYouTubeFilmPlaylist(): string {
-  return (import.meta.env.VITE_YOUTUBE_FILMS_PLAYLIST || '').trim();
-}
-
-export function getYouTubeCartoonsPlaylist(): string {
-  return (import.meta.env.VITE_YOUTUBE_CARTOONS_PLAYLIST || '').trim();
-}
+export type YTPlaylistName = 'films' | 'cartoons';
 
 export type YTPlaylistVideo = {
   id: string;
@@ -48,10 +38,7 @@ function extractYear(title: string): number | null {
   return Number(m[0]);
 }
 
-export async function fetchPlaylistVideos(listId: string): Promise<YTPlaylistVideo[]> {
-  const apiKey = getYouTubeApiKey();
-  if (!apiKey || !listId) return [];
-
+export async function fetchPlaylistVideos(playlist: YTPlaylistName): Promise<YTPlaylistVideo[]> {
   const out: YTPlaylistVideo[] = [];
   let pageToken: string | null = null;
 
@@ -59,29 +46,17 @@ export async function fetchPlaylistVideos(listId: string): Promise<YTPlaylistVid
     const params: Record<string, string> = {
       part: 'snippet,contentDetails',
       maxResults: '50',
-      playlistId: listId,
+      playlist,
     };
     if (pageToken) params.pageToken = pageToken;
 
-    let data: any;
-    if (import.meta.env.PROD) {
-      const qs = new URLSearchParams({ service: 'youtube', path: '/playlistItems' });
-      Object.entries(params).forEach(([k, v]) => qs.set(k, v));
-      const res = await fetch(`${API_PROXY}?${qs.toString()}`);
-      if (!res.ok) {
-        console.warn('YouTube playlist fetch failed', listId, res.status);
-        break;
-      }
-      data = await res.json();
-    } else {
-      const qs = new URLSearchParams({ key: apiKey, ...params });
-      const res = await fetch(`${YT_BASE}/playlistItems?${qs.toString()}`);
-      if (!res.ok) {
-        console.warn('YouTube playlist fetch failed', listId, res.status);
-        break;
-      }
-      data = await res.json();
+    const qs = new URLSearchParams({ service: 'youtube', path: '/playlistItems', ...params });
+    const res = await fetch(`${API_PROXY}?${qs.toString()}`);
+    if (!res.ok) {
+      console.warn('YouTube playlist fetch failed', playlist, res.status);
+      break;
     }
+    const data: any = await res.json();
 
     const items = data.items || [];
     for (const item of items) {
