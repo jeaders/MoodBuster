@@ -12,11 +12,21 @@ export function getYouTubeApiKey(): string {
 }
 
 export function getYouTubeFilmPlaylist(): string {
-  return (import.meta.env.VITE_YOUTUBE_FILMS_PLAYLIST || '').trim();
+  return extractPlaylistId((import.meta.env.VITE_YOUTUBE_FILMS_PLAYLIST || '').trim());
 }
 
 export function getYouTubeCartoonsPlaylist(): string {
-  return (import.meta.env.VITE_YOUTUBE_CARTOONS_PLAYLIST || '').trim();
+  return extractPlaylistId((import.meta.env.VITE_YOUTUBE_CARTOONS_PLAYLIST || '').trim());
+}
+
+function extractPlaylistId(value: string): string {
+  if (!value) return '';
+  if (value.startsWith('http')) {
+    const m = value.match(/[?&]list=([^&]+)/);
+    if (m) return m[1];
+    return '';
+  }
+  return value;
 }
 
 export type YTPlaylistVideo = {
