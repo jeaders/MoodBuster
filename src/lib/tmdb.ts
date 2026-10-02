@@ -50,14 +50,15 @@ export type TmdbSearchResult = {
 /* ---- API key management ---- */
 const KEY_STORAGE = 'moodbuster_tmdb_key';
 
-/** Chiave di default fornita dall'utente: l'app funziona subito senza configurazione. */
-export const DEFAULT_API_KEY = 'e4ec2b98194e32b52caa8d8de9ba5c02';
-
+/**
+ * Chiave personale opzionale salvata dall'utente nel browser.
+ * Senza chiave personale le richieste passano dal proxy Netlify, che usa la chiave lato server.
+ */
 export function getApiKey(): string {
   try {
-    return localStorage.getItem(KEY_STORAGE) || import.meta.env.VITE_TMDB_API_KEY || '';
+    return localStorage.getItem(KEY_STORAGE) || '';
   } catch {
-    return import.meta.env.VITE_TMDB_API_KEY || '';
+    return '';
   }
 }
 
@@ -65,10 +66,6 @@ export function setApiKey(key: string) {
   const k = key.trim();
   if (k) localStorage.setItem(KEY_STORAGE, k);
   else localStorage.removeItem(KEY_STORAGE);
-}
-
-export function isDefaultKey(): boolean {
-  return getApiKey() === DEFAULT_API_KEY;
 }
 
 /** Cache dei poster_path risolti via TMDB, condivisa in tutta l'app. */
@@ -95,9 +92,8 @@ export function resolvePosterPath(tmdbId: number): Promise<string | null> {
 /* ---- fetch helper ---- */
 async function tmdbFetch<T>(path: string, params: Record<string, string> = {}): Promise<T> {
   const key = getApiKey();
-  if (!key) throw new Error('NO_API_KEY');
 
-  if (import.meta.env.PROD) {
+  if (!key) {
     const qs = new URLSearchParams({ service: 'tmdb', path });
     Object.entries(params).forEach(([k, v]) => qs.set(k, v));
     const res = await fetch(`${API_PROXY}?${qs.toString()}`);

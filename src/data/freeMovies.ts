@@ -390,11 +390,8 @@ export function getYouTubeCartoons(): Promise<FreeTitle[]> {
 }
 
 async function loadYouTubeTitles(kind: 'film' | 'cartoon'): Promise<FreeTitle[]> {
-  const playlistId = kind === 'film' ? getYouTubeFilmPlaylist() : getYouTubeCartoonsPlaylist();
-  if (!playlistId) return [];
-
   try {
-    const videos = await fetchPlaylistVideos(playlistId);
+    const videos = await fetchPlaylistVideos(kind === 'film' ? 'films' : 'cartoons');
     const freeTitles: FreeTitle[] = [];
     for (const video of videos) {
       const ft = ytToFreeTitle(video, kind);
