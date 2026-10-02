@@ -5,6 +5,7 @@
  */
 
 const YT_BASE = 'https://www.googleapis.com/youtube/v3';
+const API_PROXY = '/.netlify/functions/api';
 
 export function getYouTubeApiKey(): string {
   return (import.meta.env.VITE_YOUTUBE_API_KEY || '').trim();
@@ -55,21 +56,33 @@ export async function fetchPlaylistVideos(listId: string): Promise<YTPlaylistVid
   let pageToken: string | null = null;
 
   for (let safety = 0; safety < 20; safety++) {
-    const qs = new URLSearchParams({
+    const params: Record<string, string> = {
       part: 'snippet,contentDetails',
       maxResults: '50',
       playlistId: listId,
-      key: apiKey,
-    });
-    if (pageToken) qs.set('pageToken', pageToken);
+    };
+    if (pageToken) params.pageToken = pageToken;
 
-    const res = await fetch(`${YT_BASE}/playlistItems?${qs.toString()}`);
-    if (!res.ok) {
-      console.warn('YouTube playlist fetch failed', listId, res.status);
-      break;
+    let data: any;
+    if (import.meta.env.PROD) {
+      const qs = new URLSearchParams({ service: 'youtube', path: '/playlistItems' });
+      Object.entries(params).forEach(([k, v]) => qs.set(k, v));
+      const res = await fetch(`${API_PROXY}?${qs.toString()}`);
+      if (!res.ok) {
+        console.warn('YouTube playlist fetch failed', listId, res.status);
+        break;
+      }
+      data = await res.json();
+    } else {
+      const qs = new URLSearchParams({ key: apiKey, ...params });
+      const res = await fetch(`${YT_BASE}/playlistItems?${qs.toString()}`);
+      if (!res.ok) {
+        console.warn('YouTube playlist fetch failed', listId, res.status);
+        break;
+      }
+      data = await res.json();
     }
 
-    const data = await res.json();
     const items = data.items || [];
     for (const item of items) {
       const snippet = item.snippet;
