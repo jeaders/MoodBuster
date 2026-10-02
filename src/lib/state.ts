@@ -2,7 +2,6 @@ import { create } from 'zustand';
 import type { MoodId } from '../data/films';
 import { SPAWN } from './layout';
 import { audio } from './audio';
-import { getApiKey } from './tmdb';
 
 export const rt = {
   x: SPAWN.x,
@@ -155,7 +154,8 @@ export const useGame = create<S>((set, get) => ({
     const isNow = audio.toggleMusic();
     set({ musicEnabled: isNow });
   },
-  hasApiKey: !!getApiKey(),
+  // La chiave TMDB è gestita lato server dal proxy Netlify
+  hasApiKey: true,
   setHasApiKey: (v) => set({ hasApiKey: v }),
 
   // IMPLEMENTAZIONE SEDIA E CINEMA
