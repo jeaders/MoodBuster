@@ -6,7 +6,6 @@
 
 const BASE = 'https://api.themoviedb.org/3';
 const IMG_BASE = 'https://image.tmdb.org/t/p';
-const API_PROXY = '/.netlify/functions/api';
 
 export type TmdbMovie = {
   id: number;
@@ -92,15 +91,7 @@ export function resolvePosterPath(tmdbId: number): Promise<string | null> {
 /* ---- fetch helper ---- */
 async function tmdbFetch<T>(path: string, params: Record<string, string> = {}): Promise<T> {
   const key = getApiKey();
-
-  if (!key) {
-    const qs = new URLSearchParams({ service: 'tmdb', path });
-    Object.entries(params).forEach(([k, v]) => qs.set(k, v));
-    const res = await fetch(`${API_PROXY}?${qs.toString()}`);
-    if (!res.ok) throw new Error(`TMDB ${res.status}`);
-    return res.json();
-  }
-
+  if (!key) throw new Error('NO_API_KEY');
   const qs = new URLSearchParams({ api_key: key, language: 'it-IT', ...params });
   const res = await fetch(`${BASE}${path}?${qs}`);
   if (!res.ok) throw new Error(`TMDB ${res.status}`);
