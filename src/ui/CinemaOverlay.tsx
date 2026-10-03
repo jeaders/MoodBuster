@@ -10,7 +10,6 @@ type Projected =
   | { kind: 'youtube'; videoId: string; title: string }
   | null;
 
-/** Interpreta il seatFilmId: `ia_<id>` = Archive, `yt_<id>` = YouTube playlist, altro = film catalogo. */
 function readProjected(seatFilmId: string | null): Projected {
   if (!seatFilmId) return null;
   if (seatFilmId.startsWith('ia_')) {
@@ -42,6 +41,7 @@ export function CinemaOverlay() {
   const setSeatedSeatId = useGame((s) => s.setSeatedSeatId);
   const setSeatFilmId = useGame((s) => s.setSeatFilmId);
   const setPanel = useGame((s) => s.setPanel);
+  const recordView = useGame((s) => s.recordView);
 
   const [embedUrl, setEmbedUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -62,6 +62,7 @@ export function CinemaOverlay() {
       setEmbedUrl(getArchiveEmbedUrl(projected.archiveId, true));
       setMode('archive');
       setLoading(false);
+      if (seatFilmId) recordView(seatFilmId);
       return;
     }
   if (projected?.kind === 'youtube') {
@@ -70,11 +71,13 @@ export function CinemaOverlay() {
       setEmbedUrl(directUrl);
       setMode('youtube');
       setLoading(false);
+      if (seatFilmId) recordView(seatFilmId);
       return;
     }
     setEmbedUrl(getYouTubeEmbedUrl(projected.videoId, true));
     setMode('youtube');
     setLoading(false);
+    if (seatFilmId) recordView(seatFilmId);
     return;
   }
     if (!catalogFilm?.tmdbId) {
@@ -90,10 +93,11 @@ export function CinemaOverlay() {
         if (!alive) return;
         setEmbedUrl(getTrailerEmbedUrl(d.videos?.results));
         setLoading(false);
+        if (seatFilmId) recordView(seatFilmId);
       })
       .catch(() => alive && setLoading(false));
     return () => { alive = false; };
-  }, [projected, catalogFilm?.tmdbId]);
+  }, [projected, catalogFilm?.tmdbId, recordView, seatFilmId]);
 
   if (!seatedSeatId) return null;
 

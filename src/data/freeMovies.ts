@@ -12,8 +12,7 @@
  * oppure l'utente incolla il link del video che vuole proiettare in Sala 1.
  */
 
-import type { MoodId } from './films';
-import { FILMS, FILM_BY_ID, FILMS_BY_MOOD, MOODS, MOOD_BY_ID } from './films';
+import { FILMS, FILM_BY_ID, FILMS_BY_MOOD, MOODS, MOOD_BY_ID, type Film, type MoodId } from './films';
 import { fetchPlaylistVideos, getYouTubeFilmPlaylist, getYouTubeCartoonsPlaylist, type YTPlaylistVideo } from '../lib/youtube';
 import { fetchMovieDetail, getApiKey, getTrailerEmbedUrl, posterUrl } from '../lib/tmdb';
 
@@ -451,9 +450,10 @@ export async function mergeYouTubeTitles(): Promise<{ added: number; skipped: nu
 }
 
 export function resolveYouTubeEmbedUrl(freeFilmId: string): string | null {
-  const entry = FREE_MOVIES.find((f) => f.id === freeFilmId);
-  if (!entry?.ytVideoId) return null;
-  return getYouTubeEmbedUrl(entry.ytVideoId, true);
+  // freeFilmId is of form 'yt_<videoId>'
+  const videoId = freeFilmId.startsWith('yt_') ? freeFilmId.slice(3) : '';
+  if (!videoId) return null;
+  return getYouTubeEmbedUrl(videoId, true);
 }
 
 /** URL embed di Internet Archive — stabile, nessun ad, nessun tracking. */

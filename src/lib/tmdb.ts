@@ -49,15 +49,17 @@ export type TmdbSearchResult = {
 /* ---- API key management ---- */
 const KEY_STORAGE = 'moodbuster_tmdb_key';
 
+const ENV_KEY = (import.meta.env.VITE_TMDB_API_KEY || '').trim();
+
 /**
- * Chiave personale opzionale salvata dall'utente nel browser.
- * Senza chiave personale le richieste passano dal proxy Netlify, che usa la chiave lato server.
+ * Chiave TMDB: usa quella salvata dall'utente nel browser, altrimenti quella
+ * d'ambiente (VITE_TMDB_API_KEY) configurata in .env.local.
  */
 export function getApiKey(): string {
   try {
-    return localStorage.getItem(KEY_STORAGE) || '';
+    return localStorage.getItem(KEY_STORAGE) || ENV_KEY;
   } catch {
-    return '';
+    return ENV_KEY;
   }
 }
 
@@ -86,6 +88,23 @@ export function resolvePosterPath(tmdbId: number): Promise<string | null> {
       posterPathCache.set(tmdbId, null);
       return null;
     });
+}
+
+/**
+ * Resolve poster path with fallback to YouTube thumbnail when TMDB returns 404.
+ * Returns a direct image URL (not just a TMDB path) when resolved successfully.
+ */
+export async function resolvePosterUrl(tmdbId: number, ytThumbnailUrl?: string): Promise<string | null> {
+  if (!tmdbId) {
+    return ytThumbnailUrl || null;
+  }
+  try {
+    const path = await resolvePosterPath(tmdbId);
+    if (path) return posterUrl(path, 'w342');
+  } catch {
+    // TMDB lookup failed
+  }
+  return ytThumbnailUrl || null;
 }
 
 /* ---- fetch helper ---- */

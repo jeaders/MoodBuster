@@ -17,12 +17,13 @@ import { CENTER_SEAT_ID } from '../lib/layout';
 import { useGame, flash } from '../lib/state';
 import { audio } from '../lib/audio';
 
-type Tab = 'film' | 'cartoni' | 'canali' | 'link' | 'yt-film' | 'yt-cartoon';
+type Tab = 'film' | 'cartoni' | 'canali' | 'link' | 'yt-film' | 'yt-cartoon' | 'visti';
 
 export function FreeCinemaPanel() {
   const setPanel = useGame((s) => s.setPanel);
   const setSeatFilmId = useGame((s) => s.setSeatFilmId);
   const setSeatedSeatId = useGame((s) => s.setSeatedSeatId);
+  const views = useGame((s) => s.views);
 
   const [tab, setTab] = useState<Tab>('film');
   const [selected, setSelected] = useState<FreeTitle | null>(null);
@@ -58,8 +59,15 @@ export function FreeCinemaPanel() {
     if (tab === 'cartoni') return FREE_CARTOONS;
     if (tab === 'yt-film') return ytFilms;
     if (tab === 'yt-cartoon') return ytCartoons;
+    if (tab === 'visti') {
+      const all = [...FREE_MOVIES, ...FREE_CARTOONS];
+      return all
+        .filter((f) => (views[f.id] || 0) > 0)
+        .sort((a, b) => (views[b.id] || 0) - (views[a.id] || 0))
+        .slice(0, 20);
+    }
     return FREE_MOVIES;
-  }, [tab, ytFilms, ytCartoons]);
+  }, [tab, ytFilms, ytCartoons, views]);
   const filtered = useMemo(() => {
     const t = q.trim().toLowerCase();
     if (!t) return list;
@@ -151,13 +159,14 @@ export function FreeCinemaPanel() {
             <TabBtn id="cartoni" label={`🎨 CARTONI (${FREE_CARTOONS.length})`} />
             <TabBtn id="yt-film" label={`▶ YT FILM`} sub="Playlist pubblica" />
             <TabBtn id="yt-cartoon" label={`▶ YT CARTOON`} sub="Playlist pubblica" />
+            <TabBtn id="visti" label={`🔥 PIÙ VISTI`} sub={`${Object.keys(views).filter((k) => views[k] > 0).length} titoli visti`} />
             <TabBtn id="canali" label="📺 CANALI" />
             <TabBtn id="link" label="🔗 INCOLLA LINK" />
           </div>
         </div>
 
         <div className="no-scrollbar flex-1 overflow-y-auto px-4 sm:px-6 py-4">
-          {(tab === 'film' || tab === 'cartoni' || tab === 'yt-film' || tab === 'yt-cartoon') && !selected && (
+          {(tab === 'film' || tab === 'cartoni' || tab === 'yt-film' || tab === 'yt-cartoon' || tab === 'visti') && !selected && (
             <>
               <input
                 value={q}
@@ -166,8 +175,9 @@ export function FreeCinemaPanel() {
                 className="mb-4 w-full rounded-xl border border-white/15 bg-black/50 px-4 py-2.5 text-sm text-white outline-none placeholder:text-white/30 focus:border-rose-400"
               />
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-                {filtered.map((f) => {
-                  const isYouTube = tab.startsWith('yt-');
+        {filtered.map((f) => {
+                  const isYouTube = !!f.ytVideoId;
+                  const hasThumbnail = !!f.ytThumbnailUrl;
                   return (
                     <button
                       key={f.id}
@@ -181,9 +191,9 @@ export function FreeCinemaPanel() {
                         className="relative aspect-[4/3] overflow-hidden"
                         style={{ background: `linear-gradient(140deg, ${f.c[0]}, ${f.c[1]})` }}
                       >
-                        {isYouTube && f.ytThumbnailUrl ? (
+                        {hasThumbnail ? (
                           <img
-                            src={f.ytThumbnailUrl}
+                            src={f.ytThumbnailUrl!}
                             alt=""
                             className="absolute inset-0 h-full w-full object-cover"
                             loading="lazy"

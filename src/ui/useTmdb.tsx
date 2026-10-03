@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { posterUrl, resolvePosterPath } from '../lib/tmdb';
+import { getCachedPosterPath } from '../lib/tmdb';
 
 const resolved = new Map<number, string | null>();
 const waiting: number[] = [];
@@ -10,7 +11,8 @@ function pump() {
   while (running < MAX_PARALLEL && waiting.length) {
     const id = waiting.shift()!;
     running++;
-    resolvePosterPath(id).finally(() => {
+    resolvePosterPath(id).then((path) => {
+      resolved.set(id, path);
       running--;
       pump();
     });
@@ -22,11 +24,11 @@ function pump() {
  * Se TMDB non risponde ritorna null (il chiamante usa la copertina procedurale).
  */
 export function useTmdbPosterPath(tmdbId: number): string | null {
-  const [path, setPath] = useState<string | null>(() => resolved.get(tmdbId) ?? null);
+  const [path, setPath] = useState<string | null>(() => getCachedPosterPath(tmdbId) ?? null);
 
   useEffect(() => {
     if (!tmdbId) return;
-    const hit = resolved.get(tmdbId);
+    const hit = getCachedPosterPath(tmdbId);
     if (hit !== undefined) {
       setPath(hit);
       return;
@@ -35,7 +37,7 @@ export function useTmdbPosterPath(tmdbId: number): string | null {
     waiting.push(tmdbId);
     pump();
     const check = window.setInterval(() => {
-      const v = resolved.get(tmdbId);
+      const v = getCachedPosterPath(tmdbId);
       if (v !== undefined) {
         window.clearInterval(check);
         if (alive) setPath(v);
@@ -54,22 +56,24 @@ export function tmdbPosterUrl(path: string | null, size: 'w185' | 'w342' | 'w500
   return posterUrl(path, size);
 }
 
-/** Cover: poster TMDB reale se disponibile, altrimenti copertina procedurale. */
+/** Cover: poster TMDB reale se disponibile, altrimenti thumbnail YouTube, altrimenti copertina procedurale. */
 export function FilmCover({
   tmdbId,
   fallback,
   size = 'w185',
   className,
   alt = '',
+  ytThumbnailUrl,
 }: {
   tmdbId: number;
   fallback: string;
   size?: 'w185' | 'w342' | 'w500';
   className?: string;
   alt?: string;
+  ytThumbnailUrl?: string;
 }) {
   const remote = useTmdbPosterPath(tmdbId);
-  const src = tmdbPosterUrl(remote, size) || fallback;
+  const src = tmdbPosterUrl(remote, size) || ytThumbnailUrl || fallback;
   return (
     <img
       src={src}
@@ -77,7 +81,8 @@ export function FilmCover({
       loading="lazy"
       className={className}
       onError={(e) => {
-        (e.currentTarget as HTMLImageElement).src = fallback;
+        const target = e.currentTarget as HTMLImageElement;
+        if (target.src !== fallback) target.src = fallback;
       }}
     />
   );

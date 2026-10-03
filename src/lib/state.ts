@@ -74,6 +74,9 @@ type S = {
   setSeatedSeatId: (seatId: string | null) => void;
   seatFilmId: string | null;
   setSeatFilmId: (filmId: string | null) => void;
+  // Tracciamento film/cartoni visti (per sezione "Più Visti")
+  views: Record<string, number>;
+  recordView: (filmId: string) => void;
 };
 
 export const useGame = create<S>((set, get) => ({
@@ -101,7 +104,7 @@ export const useGame = create<S>((set, get) => ({
     if (s.includes(id)) set({ serata: s.filter((x) => x !== id) });
     else set({ serata: [...s, id], held: id });
   },
-  clearSerata: () => {
+  clearSereta: () => {
     audio.blip(380);
     set({ serata: [], held: null });
   },
@@ -163,7 +166,6 @@ export const useGame = create<S>((set, get) => ({
   setSeatedSeatId: (seatId) => {
     audio.seatCreak();
     if (seatId) {
-      // Quando si siede, mette in riproduzione la cassetta in mano (se c'è)
       const heldFilm = get().held;
       set({ seatedSeatId: seatId, seatFilmId: heldFilm || 'f0' });
       flash('Ti sei seduto comodamente in Sala 1 🎬');
@@ -174,6 +176,13 @@ export const useGame = create<S>((set, get) => ({
   },
   seatFilmId: null,
   setSeatFilmId: (filmId) => set({ seatFilmId: filmId }),
+  views: loadViews(),
+  recordView: (filmId) => {
+    const views = { ...get().views };
+    views[filmId] = (views[filmId] || 0) + 1;
+    saveViews(views);
+    set({ views });
+  },
 }));
 
 let toastTimer: number | undefined;
@@ -181,6 +190,29 @@ export function flash(msg: string) {
   useGame.getState().setToast(msg);
   window.clearTimeout(toastTimer);
   toastTimer = window.setTimeout(() => useGame.getState().setToast(null), 2800);
+}
+
+const VIEWS_KEY = 'moodbuster_views';
+
+export function loadViews(): Record<string, number> {
+  try {
+    const s = localStorage.getItem(VIEWS_KEY);
+    if (s) {
+      const obj = JSON.parse(s);
+      if (typeof obj === 'object' && obj !== null) return obj as Record<string, number>;
+    }
+  } catch {
+    // ignore
+  }
+  return {};
+}
+
+export function saveViews(views: Record<string, number>) {
+  try {
+    localStorage.setItem(VIEWS_KEY, JSON.stringify(views));
+  } catch {
+    // ignore
+  }
 }
 
 export const uiOpen = () => {
