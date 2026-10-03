@@ -81,29 +81,28 @@ export async function fetchPlaylistVideos(listId: string): Promise<YTPlaylistVid
 
     let data: any;
     if (import.meta.env.PROD) {
-      const qs = new URLSearchParams({ service: 'youtube', path: '/playlistItems' });
-      Object.entries(params).forEach(([k, v]) => qs.set(k, v));
+      const qs = new URLSearchParams({ service: 'youtube', path: '/playlistItems', playlistId: listId });
       const proxyUrl = `${API_PROXY}?${qs.toString()}`;
-      if (import.meta.env.DEV) console.log('[YT] proxy request', proxyUrl);
+      console.log('[YT][prod] proxy request', proxyUrl);
       const res = await fetch(proxyUrl);
       if (!res.ok) {
-        console.warn('YouTube playlist fetch failed', listId, res.status);
+        console.warn('[YT][prod] playlist fetch failed', listId, res.status, await res.text().catch(() => ''));
         break;
       }
       data = await res.json();
     } else {
       const qs = new URLSearchParams({ key: apiKey, ...params });
       const url = `${YT_BASE}/playlistItems?${qs.toString()}`;
-      if (import.meta.env.DEV) console.log('[YT] direct request', url);
+      console.log('[YT][dev] direct request', url);
       const res = await fetch(url);
       if (!res.ok) {
-        console.warn('YouTube playlist fetch failed', listId, res.status);
+        console.warn('[YT][dev] playlist fetch failed', listId, res.status, await res.text().catch(() => ''));
         break;
       }
       data = await res.json();
     }
 
-    if (import.meta.env.DEV) console.log('[YT] items count', data.items?.length, 'pageToken', data.nextPageToken);
+    console.log('[YT] items count', data.items?.length, 'pageToken', data.nextPageToken);
 
     const items = data.items || [];
     for (const item of items) {
