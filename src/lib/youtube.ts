@@ -85,13 +85,22 @@ export async function fetchPlaylistVideos(listId: string): Promise<YTPlaylistVid
       const proxyUrl = `${API_PROXY}?${qs.toString()}`;
       console.log('[YT][prod] proxy request', proxyUrl);
       const res = await fetch(proxyUrl);
-      if (!res.ok) {
-        console.warn('[YT][prod] playlist fetch failed', listId, res.status, await res.text().catch(() => ''));
-        break;
+      if (res.ok) {
+        data = await res.json();
+      } else {
+        console.warn('[YT][prod] proxy failed', listId, res.status, 'fallback to direct');
+        const qs2 = new URLSearchParams({ key: apiKey, part: 'snippet,contentDetails', maxResults: '50', playlistId: listId });
+        const fallbackUrl = `${YT_BASE}/playlistItems?${qs2.toString()}`;
+        console.log('[YT][prod] fallback request', fallbackUrl);
+        const fallbackRes = await fetch(fallbackUrl);
+        if (!fallbackRes.ok) {
+          console.warn('[YT][prod] fallback failed', listId, fallbackRes.status, await fallbackRes.text().catch(() => ''));
+          break;
+        }
+        data = await fallbackRes.json();
       }
-      data = await res.json();
     } else {
-      const qs = new URLSearchParams({ key: apiKey, ...params });
+      const qs = new URLSearchParams({ key: apiKey, part: 'snippet,contentDetails', maxResults: '50', playlistId: listId });
       const url = `${YT_BASE}/playlistItems?${qs.toString()}`;
       console.log('[YT][dev] direct request', url);
       const res = await fetch(url);

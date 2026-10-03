@@ -14,7 +14,7 @@
 
 import type { MoodId } from './films';
 import { FILMS, FILM_BY_ID, FILMS_BY_MOOD, MOODS, MOOD_BY_ID } from './films';
-import { fetchPlaylistVideos, type YTPlaylistVideo } from '../lib/youtube';
+import { fetchPlaylistVideos, getYouTubeFilmPlaylist, getYouTubeCartoonsPlaylist, type YTPlaylistVideo } from '../lib/youtube';
 import { fetchMovieDetail, getApiKey, getTrailerEmbedUrl, posterUrl } from '../lib/tmdb';
 
 export type FreeTitle = {
