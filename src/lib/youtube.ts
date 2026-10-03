@@ -33,11 +33,15 @@ export function getYouTubeApiKey(): string {
 }
 
 export function getYouTubeFilmPlaylist(): string {
-  return extractPlaylistId((import.meta.env.VITE_YOUTUBE_FILMS_PLAYLIST || '').trim());
+  const v = extractPlaylistId((import.meta.env.VITE_YOUTUBE_FILMS_PLAYLIST || '').trim());
+  if (import.meta.env.DEV) console.log('[YT] films playlist', v);
+  return v;
 }
 
 export function getYouTubeCartoonsPlaylist(): string {
-  return extractPlaylistId((import.meta.env.VITE_YOUTUBE_CARTOONS_PLAYLIST || '').trim());
+  const v = extractPlaylistId((import.meta.env.VITE_YOUTUBE_CARTOONS_PLAYLIST || '').trim());
+  if (import.meta.env.DEV) console.log('[YT] cartoons playlist', v);
+  return v;
 }
 
 function cleanTitle(title: string): string {
@@ -79,7 +83,9 @@ export async function fetchPlaylistVideos(listId: string): Promise<YTPlaylistVid
     if (import.meta.env.PROD) {
       const qs = new URLSearchParams({ service: 'youtube', path: '/playlistItems' });
       Object.entries(params).forEach(([k, v]) => qs.set(k, v));
-      const res = await fetch(`${API_PROXY}?${qs.toString()}`);
+      const proxyUrl = `${API_PROXY}?${qs.toString()}`;
+      if (import.meta.env.DEV) console.log('[YT] proxy request', proxyUrl);
+      const res = await fetch(proxyUrl);
       if (!res.ok) {
         console.warn('YouTube playlist fetch failed', listId, res.status);
         break;
@@ -87,13 +93,17 @@ export async function fetchPlaylistVideos(listId: string): Promise<YTPlaylistVid
       data = await res.json();
     } else {
       const qs = new URLSearchParams({ key: apiKey, ...params });
-      const res = await fetch(`${YT_BASE}/playlistItems?${qs.toString()}`);
+      const url = `${YT_BASE}/playlistItems?${qs.toString()}`;
+      if (import.meta.env.DEV) console.log('[YT] direct request', url);
+      const res = await fetch(url);
       if (!res.ok) {
         console.warn('YouTube playlist fetch failed', listId, res.status);
         break;
       }
       data = await res.json();
     }
+
+    if (import.meta.env.DEV) console.log('[YT] items count', data.items?.length, 'pageToken', data.nextPageToken);
 
     const items = data.items || [];
     for (const item of items) {

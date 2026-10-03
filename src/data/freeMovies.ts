@@ -390,8 +390,15 @@ export function getYouTubeCartoons(): Promise<FreeTitle[]> {
 }
 
 async function loadYouTubeTitles(kind: 'film' | 'cartoon'): Promise<FreeTitle[]> {
+  const playlistId = kind === 'film' ? getYouTubeFilmPlaylist() : getYouTubeCartoonsPlaylist();
+  if (!playlistId) {
+    console.warn('[YT] playlistId missing for', kind);
+    return [];
+  }
+
   try {
-    const videos = await fetchPlaylistVideos(kind === 'film' ? 'films' : 'cartoons');
+    const videos = await fetchPlaylistVideos(playlistId);
+    console.log('[YT] loaded videos for', kind, videos.length);
     const freeTitles: FreeTitle[] = [];
     for (const video of videos) {
       const ft = ytToFreeTitle(video, kind);

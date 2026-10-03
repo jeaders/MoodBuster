@@ -36,9 +36,10 @@ export function FreeCinemaPanel() {
     if (tab === 'yt-film' && !ytFilmLoading && !ytFilms.length) {
       setYtFilmLoading(true);
       import('../data/freeMovies').then((m) => m.getYouTubeFilms()).then((items) => {
+        console.log('[FreeCinema] yt-film loaded', items.length);
         setYtFilms(items);
         setYtFilmLoading(false);
-      }).catch(() => setYtFilmLoading(false));
+      }).catch((e) => { console.warn(e); setYtFilmLoading(false); });
     }
   }, [tab, ytFilmLoading, ytFilms.length]);
 
@@ -46,9 +47,10 @@ export function FreeCinemaPanel() {
     if (tab === 'yt-cartoon' && !ytCartoonLoading && !ytCartoons.length) {
       setYtCartoonLoading(true);
       import('../data/freeMovies').then((m) => m.getYouTubeCartoons()).then((items) => {
+        console.log('[FreeCinema] yt-cartoon loaded', items.length);
         setYtCartoons(items);
         setYtCartoonLoading(false);
-      }).catch(() => setYtCartoonLoading(false));
+      }).catch((e) => { console.warn(e); setYtCartoonLoading(false); });
     }
   }, [tab, ytCartoonLoading, ytCartoons.length]);
 
