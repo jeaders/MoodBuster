@@ -32,16 +32,13 @@ export const CINEMA_RECT = {
 export const DOOR_RECT = { x0: ROOM.hx - 1.1, x1: ROOM.hx + 2.2, z0: -8.8, z1: -3.2 };
 
 export const SHELF_TOPS = [0.52, 1.14, 1.76];
-const PER_SHELF = 16; // gondola più corta → meno slot per lato
+const PER_SHELF = 16;
 const SPACING = 0.47;
 
 export type Gondola = { id: number; mood: MoodId; x: number; z: number };
 
 export const GONDOLAS: Gondola[] = [];
 {
-  // 4 righe × 3 colonne = 12 gondole non sovrapposte.
-  // Colonne a x = -11.5 / 0 / +11.5 (le gondole da 8.4 di lunghezza non si toccano).
-  // Righe a z = -13.5 / -8 / -2.5 / +3 (step 5.5, corridoi di 4 unità tra le gondole).
   const cols = [-11.5, 0, 11.5];
   const rows = [-13.5, -8, -2.5, 3];
   let i = 0;
@@ -105,15 +102,17 @@ function rnd(n: number) {
   return s - Math.floor(s);
 }
 
-export const SLOTS: Slot[] = [];
-{
+export let SLOTS: Slot[] = [];
+export let SLOTS_BY_FILM: Record<string, Slot[]> = {};
+
+function buildSlots() {
+  SLOTS = [];
+  SLOTS_BY_FILM = {};
   let idx = 0;
   for (const g of GONDOLAS) {
     const films = FILMS_BY_MOOD[g.mood];
     if (!films || !films.length) continue;
 
-    // Sequenza che scorre tutto il reparto prima di ripetere un titolo,
-    // e rimescola l'ordine a ogni giro così due copie non finiscono mai vicine.
     const n = films.length;
     let cursor = 0;
     let order = films.map((_, i) => i);
@@ -140,11 +139,11 @@ export const SLOTS: Slot[] = [];
       for (let s = 0; s < SHELF_TOPS.length; s++) {
         for (let k = 0; k < PER_SHELF; k++) {
           const seed = g.id * 977 + face * 131 + s * 53 + k;
-          if (rnd(seed) < 0.14) continue; // buchi naturali sullo scaffale
+          if (rnd(seed) < 0.14) continue;
           const x = g.x + (k - (PER_SHELF - 1) / 2) * SPACING;
           const z = g.z + nz * 0.52;
           const f = nextFilm();
-          SLOTS.push({
+          const slot: Slot = {
             idx: idx++,
             filmId: f.id,
             mood: g.mood,
@@ -153,7 +152,9 @@ export const SLOTS: Slot[] = [];
             z,
             nx: 0,
             nz,
-          });
+          };
+          SLOTS.push(slot);
+          (SLOTS_BY_FILM[f.id] ||= []).push(slot);
         }
       }
     }
@@ -167,7 +168,7 @@ export const SLOTS: Slot[] = [];
       if (rnd(seed) < 0.08) continue;
       const x = (k - 31 / 2) * SPACING;
       const f = top[(k + s * 7) % top.length];
-      SLOTS.push({
+      const slot: Slot = {
         idx: idx++,
         filmId: f.id,
         mood: f.mood,
@@ -176,13 +177,39 @@ export const SLOTS: Slot[] = [];
         z: -ROOM.hz + 0.62,
         nx: 0,
         nz: 1,
-      });
+      };
+      SLOTS.push(slot);
+      (SLOTS_BY_FILM[f.id] ||= []).push(slot);
     }
+  }
+
+  // scaffale novità (parete est, vicino al cinema) — film più recenti
+  const newReleases = [...FILMS].sort((a, b) => b.y - a.y).slice(0, 20);
+  const noveltyX = ROOM.hx - 0.62;
+  for (let k = 0; k < Math.min(newReleases.length, 20); k++) {
+    const f = newReleases[k];
+    const x = noveltyX;
+    const z = (k - 10) * SPACING;
+    const slot: Slot = {
+      idx: idx++,
+      filmId: f.id,
+      mood: f.mood,
+      x,
+      y: SHELF_TOPS[1] + BOX.h / 2,
+      z,
+      nx: 0,
+      nz: 1,
+    };
+    SLOTS.push(slot);
+    (SLOTS_BY_FILM[f.id] ||= []).push(slot);
   }
 }
 
-export const SLOTS_BY_FILM: Record<string, Slot[]> = {};
-for (const s of SLOTS) (SLOTS_BY_FILM[s.filmId] ||= []).push(s);
+buildSlots();
+
+export function recomputeSlots() {
+  buildSlots();
+}
 
 export type Box2 = { x0: number; x1: number; z0: number; z1: number };
 
@@ -193,10 +220,10 @@ export const COLLIDERS: Box2[] = [
     z0: g.z - GOND.depth / 2,
     z1: g.z + GOND.depth / 2,
   })),
-  { x0: -20.4, x1: -13.6, z0: 12.2, z1: 14.2 }, // bancone cassa
-  { x0: -1.45, x1: 1.45, z0: 14.0, z1: 16.5 }, // chiosco mood-o-matic
-  { x0: -ROOM.hx, x1: ROOM.hx, z0: -ROOM.hz, z1: -ROOM.hz + 0.95 }, // scaffale novità
-  { x0: 15.2, x1: 19.8, z0: 13.4, z1: 15.2 }, // banco popcorn
+  { x0: -20.4, x1: -13.6, z0: 12.2, z1: 14.2 },
+  { x0: -1.45, x1: 1.45, z0: 14.0, z1: 16.5 },
+  { x0: -ROOM.hx, x1: ROOM.hx, z0: -ROOM.hz, z1: -ROOM.hz + 0.95 },
+  { x0: 15.2, x1: 19.8, z0: 13.4, z1: 15.2 },
 ];
 
 type Rect = { x0: number; x1: number; z0: number; z1: number };
@@ -209,7 +236,7 @@ export function collide(x: number, z: number, r = 0.42) {
   const walkable =
     inRect(x, z, r, SHOP_RECT) ||
     inRect(x, z, r, CINEMA_RECT) ||
-    (x > DOOR_RECT.x0 + 0.2 && x < DOOR_RECT.x1 - 0.2 && z > DOOR_RECT.z0 + r && z < DOOR_RECT.z1 - r);
+    (x > DOOR_RECT.x0 + 0.2 && x < DOOR_RECT.x1 - 0.2 && z > DOOR_RECT.z0 + r && z < DOOR_RECT.z1 + r);
   if (!walkable) return true;
   for (const c of COLLIDERS) {
     if (x > c.x0 - r && x < c.x1 + r && z > c.z0 - r && z < c.z1 + r) return true;

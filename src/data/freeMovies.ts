@@ -12,9 +12,11 @@
  * oppure l'utente incolla il link del video che vuole proiettare in Sala 1.
  */
 
-import { FILMS, FILM_BY_ID, FILMS_BY_MOOD, MOODS, MOOD_BY_ID, type Film, type MoodId } from './films';
+import { FILMS, FILM_BY_ID, FILMS_BY_MOOD, MOODS, MOOD_BY_ID, type Film, type MoodId, addFilmToCatalog, deduplicateCatalog } from './films';
 import { fetchPlaylistVideos, getYouTubeFilmPlaylist, getYouTubeCartoonsPlaylist, type YTPlaylistVideo } from '../lib/youtube';
-import { fetchMovieDetail, getApiKey, getTrailerEmbedUrl, posterUrl } from '../lib/tmdb';
+import { fetchMovieDetail, getApiKey, getTrailerEmbedUrl, posterUrl, fetchNowPlaying, fetchUpcoming } from '../lib/tmdb';
+import { recomputeSlots } from '../lib/layout';
+import { useGame } from '../lib/state';
 
 export type FreeTitle = {
   id: string;
@@ -410,7 +412,7 @@ async function loadYouTubeTitles(kind: 'film' | 'cartoon'): Promise<FreeTitle[]>
   }
 }
 
-/** Merge YouTube titles into FREE_MOVIES, avoiding duplicates. */
+/** Merge YouTube titles into FREE_MOVIES and FILMS catalog, avoiding duplicates. */
 export async function mergeYouTubeTitles(): Promise<{ added: number; skipped: number }> {
   const [ytFilms, ytCartoons] = await Promise.all([getYouTubeFilms(), getYouTubeCartoons()]);
   const allYT = [...ytFilms, ...ytCartoons];
@@ -418,6 +420,10 @@ export async function mergeYouTubeTitles(): Promise<{ added: number; skipped: nu
   const existingIds = new Set(FREE_MOVIES.map((f) => f.id));
   const existingTitles = new Set(
     FREE_MOVIES.map((f) => f.t.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()),
+  );
+  const catalogIds = new Set(FILMS.map((f) => f.id));
+  const catalogTitles = new Set(
+    FILMS.map((f) => f.t.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()),
   );
 
   let added = 0;
@@ -440,13 +446,117 @@ export async function mergeYouTubeTitles(): Promise<{ added: number; skipped: nu
       continue;
     }
 
+    // Aggiungi a FREE_MOVIES
     FREE_MOVIES.push(yt);
     existingIds.add(yt.id);
     existingTitles.add(normalizedTitle);
+
+    // Aggiungi anche al catalogo FILMS per gli scaffali 3D
+    const mood = guessMood(yt.t, yt.kind);
+    addFilmToCatalog({
+      t: yt.t,
+      y: yt.y,
+      d: yt.d,
+      r: yt.r || 6.5,
+      mood,
+      s: yt.s,
+      c: yt.c,
+      quote: yt.quote,
+      platforms: ['YouTube'],
+      snack: yt.snack,
+      drink: yt.drink,
+      tmdbId: 0,
+    });
+
     added++;
   }
 
+  // Deduplica il catalogo dopo l'aggiunta
+  const removed = deduplicateCatalog();
+  if (removed > 0) {
+    console.log('[YT] deduplicated catalog, removed', removed, 'duplicates');
+  }
+
+  // Ricalcola gli scaffali 3D
+  recomputeSlots();
+  console.log('[YT] slots recomputed, total SLOTS:', SLOTS.length);
+
   return { added, skipped };
+}
+
+/**
+ * Carica i film "nuove uscite" da TMDB e li aggiunge al catalogo.
+ */
+export async function loadNewReleases(limit = 20): Promise<{ added: number; skipped: number }> {
+  try {
+    const [nowPlaying, upcoming] = await Promise.all([
+      fetchNowPlaying('1'),
+      fetchUpcoming('1'),
+    ]);
+
+    const allMovies = [
+      ...(nowPlaying.results || []),
+      ...(upcoming.results || []),
+    ];
+
+    // Deduplica per TMDB id
+    const seenTmdb = new Set<number>();
+    const unique = allMovies.filter((m) => {
+      if (seenTmdb.has(m.id)) return false;
+      seenTmdb.add(m.id);
+      return true;
+    });
+
+    // Ordina per data di uscita (più recenti prima)
+    unique.sort((a, b) => (b.release_date || '').localeCompare(a.release_date || ''));
+
+    const toAdd = unique.slice(0, limit);
+    let added = 0;
+    let skipped = 0;
+
+    for (const m of toAdd) {
+      const year = m.release_date ? parseInt(m.release_date.slice(0, 4)) : new Date().getFullYear();
+      const title = m.title || m.original_title;
+      const normalized = title.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+
+      // Check se già esiste nel catalogo
+      const exists = FILMS.some(
+        (f) => f.t.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim() === normalized && Math.abs(f.y - year) <= 1
+      );
+      if (exists) {
+        skipped++;
+        continue;
+      }
+
+      // Aggiungi al catalogo
+      const mood = guessMood(title, 'film');
+      const posterPath = m.poster_path;
+      addFilmToCatalog({
+        t: title,
+        y: year,
+        d: m.runtime || 110,
+        r: m.vote_average || 7.0,
+        mood,
+        s: m.overview || 'Film dalle nuove uscite.',
+        c: ['#1a1a2e', '#16213e'],
+        quote: 'Nuova uscita.',
+        platforms: [],
+        snack: 'Popcorn',
+        drink: 'Cola',
+        tmdbId: m.id,
+      });
+
+      added++;
+    }
+
+    // Ricalcola gli scaffali
+    recomputeSlots();
+
+    return { added, skipped };
+  } catch (error) {
+    console.warn('Failed to load new releases:', error);
+    return { added: 0, skipped: 0 };
+  }
 }
 
 export function resolveYouTubeEmbedUrl(freeFilmId: string): string | null {

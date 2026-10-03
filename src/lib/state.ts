@@ -77,6 +77,9 @@ type S = {
   // Tracciamento film/cartoni visti (per sezione "Più Visti")
   views: Record<string, number>;
   recordView: (filmId: string) => void;
+  // Versione scaffali: incrementata quando si aggiungono film dinamici
+  slotVersion: number;
+  bumpSlots: () => void;
 };
 
 export const useGame = create<S>((set, get) => ({
@@ -183,6 +186,8 @@ export const useGame = create<S>((set, get) => ({
     saveViews(views);
     set({ views });
   },
+  slotVersion: 0,
+  bumpSlots: () => set((s) => ({ slotVersion: s.slotVersion + 1 })),
 }));
 
 let toastTimer: number | undefined;

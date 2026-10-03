@@ -30,6 +30,7 @@ import {
 } from '../lib/textures';
 import { focusMark, useGame } from '../lib/state';
 import { loadTmdbPosterTexture } from '../lib/threePosters';
+import { SLOTS_BY_FILM, SLOTS } from '../lib/layout';
 
 type Item = { p: [number, number, number]; r?: [number, number, number]; s?: [number, number, number] };
 
@@ -454,6 +455,7 @@ function Shelving() {
 
 /* ------------------------------------------------------------------ */
 function FilmBoxes() {
+  const slotVersion = useGame((s) => s.slotVersion);
   const caseGeo = useMemo(() => new THREE.BoxGeometry(BOX.w, BOX.h, BOX.d), []);
   const caseMat = useMemo(() => new THREE.MeshStandardMaterial({ color: '#15151b', roughness: 0.45 }), []);
   const posterGeo = useMemo(() => new THREE.PlaneGeometry(BOX.w - 0.035, BOX.h - 0.045), []);
@@ -463,9 +465,9 @@ function FilmBoxes() {
     for (const list of Object.values(SLOTS_BY_FILM))
       for (const s of list as Slot[]) out.push({ p: [s.x, s.y, s.z], r: [0, Math.atan2(s.nx, s.nz), 0] });
     return out;
-  }, []);
+  }, [slotVersion]);
 
-  const groups = useMemo(() => Object.entries(SLOTS_BY_FILM), []);
+  const groups = useMemo(() => Object.entries(SLOTS_BY_FILM), [slotVersion]);
 
   return (
     <group>

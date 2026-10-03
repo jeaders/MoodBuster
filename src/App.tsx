@@ -19,7 +19,8 @@ import {
 import { CinemaOverlay } from './ui/CinemaOverlay';
 import { FreeCinemaPanel } from './ui/FreeCinemaPanel';
 import { keys, look, press, tapReq, uiOpen, useGame } from './lib/state';
-import { mergeYouTubeTitles } from './data/freeMovies';
+import { mergeYouTubeTitles, loadNewReleases } from './data/freeMovies';
+import { recomputeSlots } from './lib/layout';
 
 export default function App() {
   const phase = useGame((s) => s.phase);
@@ -36,11 +37,24 @@ export default function App() {
     return () => clearTimeout(t);
   }, []);
 
-  /* ------- carica i film YouTube al startup ------- */
+  /* ------- carica i film YouTube e nuove uscite al startup ------- */
   useEffect(() => {
-    mergeYouTubeTitles().then(({ added, skipped }) => {
-      console.log('[App] YouTube merge complete:', { added, skipped });
-    }).catch((e) => console.warn('[App] YouTube merge failed:', e));
+    const bump = useGame.getState().bumpSlots;
+    mergeYouTubeTitles()
+      .then(() => {
+        console.log('[App] YouTube merge done');
+        recomputeSlots();
+        bump();
+      })
+      .catch((e) => console.warn('[App] YouTube merge failed:', e));
+
+    loadNewReleases(20)
+      .then((res) => {
+        console.log('[App] New releases loaded:', res);
+        recomputeSlots();
+        bump();
+      })
+      .catch((e) => console.warn('[App] New releases failed:', e));
   }, []);
 
   /* ------- rilevamento touch ------- */

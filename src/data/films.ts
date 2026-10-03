@@ -343,3 +343,69 @@ loadCustomFilms().forEach((f) => {
     (FILMS_BY_MOOD[f.mood] ||= []).push(f);
   }
 });
+
+/**
+ * Aggiunge un film al catalogo runtime e aggiorna gli indici.
+ * Usato per film YouTube e nuove uscite TMDB.
+ */
+export function addFilmToCatalog(film: Omit<Film, 'id' | 'a' | 'fmt'> & { id?: string }): Film {
+  // Controlla che non esista già
+  const normalized = film.t.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  const exists = FILMS.some(
+    (f) => f.t.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim() === normalized && Math.abs(f.y - film.y) <= 1
+  );
+  if (exists) {
+    return FILMS.find(
+      (f) => f.t.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim() === normalized && Math.abs(f.y - film.y) <= 1
+    )!;
+  }
+
+  const id = film.id || 'dynamic_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+  const newFilm: Film = {
+    ...film,
+    id,
+    a: Math.floor(Math.random() * 6),
+    fmt: film.y <= 1999 ? 'VHS' : 'DVD',
+    isCustom: true,
+  } as Film;
+  FILMS.push(newFilm);
+  FILM_BY_ID[newFilm.id] = newFilm;
+  (FILMS_BY_MOOD[newFilm.mood] ||= []).push(newFilm);
+  return newFilm;
+}
+
+/**
+ * Rimuove un film dal catalogo runtime e aggiorna gli indici.
+ */
+export function removeFilmFromCatalog(filmId: string): boolean {
+  const idx = FILMS.findIndex((f) => f.id === filmId);
+  if (idx === -1) return false;
+  const film = FILMS[idx];
+  FILMS.splice(idx, 1);
+  delete FILM_BY_ID[filmId];
+  const moodArr = FILMS_BY_MOOD[film.mood];
+  if (moodArr) {
+    const mIdx = moodArr.findIndex((f) => f.id === filmId);
+    if (mIdx !== -1) moodArr.splice(mIdx, 1);
+  }
+  return true;
+}
+
+/**
+ * Deduplica il catalogo FILMS per titolo+anno, mantenendo la prima occorrenza.
+ */
+export function deduplicateCatalog(): number {
+  const seen = new Set<string>();
+  let removed = 0;
+  for (let i = FILMS.length - 1; i >= 0; i--) {
+    const f = FILMS[i];
+    const key = `${f.t.toLowerCase().replace(/\s*\(.*?\)\s*/g, '').trim()}|${f.y}`;
+    if (seen.has(key)) {
+      removeFilmFromCatalog(f.id);
+      removed++;
+    } else {
+      seen.add(key);
+    }
+  }
+  return removed;
+}
